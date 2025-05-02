@@ -33,7 +33,7 @@ def get_company(request):
     # TODO: uncomment later
     # if not request.user.is_authenticated:
     #     return 403, {"detail": "Authentication required"}
-    # company = request.user.company
+    company = request.company
 
     return {
         "id": str(company.id),
@@ -58,8 +58,7 @@ def create_company(request: HttpRequest):
     if not name:
         return 400, {"detail": "Name is required"}
 
-    company = Company.objects.first()  # TODO: REMOVE LATER
-    # company = request.user.company
+    company = request.company
     company.name = name
     company.primary_color = primary_color
     company.secondary_color = secondary_color
@@ -83,7 +82,6 @@ def delete_company(request):
     if not request.user.is_authenticated:
         return 403, {"detail": "Authentication required"}
 
-    company = Company.objects.first()  # TODO: REMOVE LATER
-    # company = request.user.company
+    company = request.company
     company.delete()
     return 204, None

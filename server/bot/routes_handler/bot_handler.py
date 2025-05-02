@@ -36,8 +36,7 @@ class BotStatusSchema(Schema):
 @router.post("/bot", response={201: dict})
 def create_bot(request, data: BotCreateSchema):
     try:
-        company = Company.objects.first()  # TODO: REMOVE LATER
-        # company = request.user.company
+        company = request.company
     except Company.DoesNotExist:
         return 404, {"error": "Company not found"}
 
@@ -52,14 +51,15 @@ def create_bot(request, data: BotCreateSchema):
         knowledge_item = KnowledgeItem.objects.create(bot=bot, type=item.type, content=item.content)
         knowledge_items.append({"id": str(knowledge_item.id), "type": knowledge_item.type, "content": knowledge_item.content})
 
+    # Set off async task to create embeddings
+
     return 201, {"id": str(bot.id), "name": bot.name, "tone": bot.tone, "company": {"id": str(company.id), "name": company.name}, "knowledge_items": knowledge_items}
 
 
 @router.get("/bots", response={200: List[BotResponseSchema]})
 def list_bots(request):
     try:
-        company = Company.objects.first()  # TODO: REMOVE LATER
-        # company = request.user.company
+        company = request.company
     except Company.DoesNotExist:
         return 404, {"error": "Company not found"}
 
@@ -92,8 +92,7 @@ def get_bot_status(request, bot_id: str):
 @router.get("/bot/{bot_id}", response={200: BotResponseSchema})
 def get_bot(request, bot_id: str):
     try:
-        company = Company.objects.first()  # TODO: REMOVE LATER
-        # company = request.user.company
+        company = request.company
 
         bot = Bot.objects.get(id=bot_id, company=company)
         knowledge_items = [{"id": str(item.id), "type": item.type, "content": item.content} for item in bot.knowledge_items.all()]

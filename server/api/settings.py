@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "web_auth",
     "company",
     "bot",
+    "core",
 ]
 
 MIDDLEWARE = [
@@ -61,6 +62,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "core.middleware.CompanyMiddleware",
 ]
 
 CORS_ALLOWED_ORIGINS = [
