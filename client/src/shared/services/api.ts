@@ -98,7 +98,7 @@ export const listBots = async (): Promise<Bot[]> => {
   }
 };
 
-export const getBotStatus = async (botId: string): Promise<{ status: string }> => {
+export const getBotStatus = async (botId: string): Promise<BotStatus> => {
   try {
     const response = await axios.get(`${API_BASE_URL}/bot/${botId}/status`);
     return response.data;
