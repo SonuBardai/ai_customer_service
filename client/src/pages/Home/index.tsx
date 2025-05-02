@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { listBots, getBotStatus, getBot, Bot, BotStatus } from "../../shared/services/api";
+import { listBots, getBot, Bot } from "../../shared/services/api";
 import toast from "react-hot-toast";
 import { FaRobot, FaCheckCircle, FaExclamationCircle, FaCopy, FaGlobe, FaBook, FaCog, FaLink, FaFile, FaFont, FaTrash, FaPlus, FaTimes } from "react-icons/fa";
 import ChatbotInterface from "../../components/ChatbotInterface";
 import { getContrastColor } from "../../utils/color";
 import { BACKEND_URL } from "Shared/constants";
+import useBotPolling from "../../shared/useBotPolling";
 
 const Home: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -13,7 +14,6 @@ const Home: React.FC = () => {
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
   const [whitelistedDomains, setWhitelistedDomains] = useState<string[]>([""]);
   const [isLoading, setIsLoading] = useState(true);
-  const [botStatus, setBotStatus] = useState<BotStatus | null>(null);
   const [activeTab, setActiveTab] = useState("whitelist");
   const [knowledgeItems, setKnowledgeItems] = useState<
     Array<{
@@ -27,6 +27,9 @@ const Home: React.FC = () => {
     tone: "professional",
   });
   const [showChatbot, setShowChatbot] = useState(false);
+
+  // Poll bot status when selectedBot changes
+  const { status: botStatus, isPolling } = useBotPolling(selectedBot?.id || "");
 
   const fetchBotDetails = async (botId: string) => {
     try {
@@ -81,36 +84,8 @@ const Home: React.FC = () => {
   }, [searchParams]);
 
   useEffect(() => {
-    let intervalId: number;
-
-    if (selectedBot) {
-      const checkBotStatus = async () => {
-        try {
-          // Simulate training time
-          await new Promise((resolve) => setTimeout(resolve, 5000));
-
-          const status = await getBotStatus(selectedBot.id);
-          setBotStatus(status);
-
-          // If bot is ready or in error state, stop polling
-          if (status.status === "ready" || status.status === "error") {
-            clearInterval(intervalId);
-          }
-        } catch (error) {
-          toast.error("Error fetching bot status");
-          clearInterval(intervalId);
-        }
-      };
-
-      // Check status immediately and then every 5 seconds
-      checkBotStatus();
-      intervalId = window.setInterval(checkBotStatus, 5000);
-    }
-
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      // Cleanup function
     };
   }, [selectedBot]);
 
@@ -372,20 +347,24 @@ const Home: React.FC = () => {
               </div>
               {searchParams.get("id") === selectedBot.id && (
                 <div className="flex items-center gap-2">
-                  {!botStatus ? (
+                  {isPolling ? (
                     <div className="flex items-center gap-2 text-info">
                       <div className="loading loading-spinner loading-sm"></div>
                       <span>We're training your bot...</span>
                     </div>
-                  ) : botStatus.status === "ready" ? (
-                    <div className="flex items-center gap-2 text-success">
-                      <FaCheckCircle className="text-xl" />
-                      <span>Bot Ready!</span>
-                    </div>
-                  ) : botStatus.status === "error" ? (
-                    <div className="flex items-center gap-2 text-error">
-                      <FaExclamationCircle className="text-xl" />
-                      <span>Error: {botStatus.error}</span>
+                  ) : botStatus ? (
+                    <div className="flex items-center gap-2">
+                      {botStatus.pollings[botStatus.pollings.length - 1].status === "completed" ? (
+                        <>
+                          <FaCheckCircle className="text-xl text-success" />
+                          <span>Bot Ready!</span>
+                        </>
+                      ) : (
+                        <>
+                          <FaExclamationCircle className="text-xl text-error" />
+                          <span>Error: {botStatus.pollings[botStatus.pollings.length - 1].error}</span>
+                        </>
+                      )}
                     </div>
                   ) : null}
                 </div>

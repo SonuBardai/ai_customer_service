@@ -1,6 +1,7 @@
 from django.db import models
 import uuid
 from company.models import Company
+from django.utils import timezone
 
 
 class Bot(models.Model):
@@ -25,3 +26,22 @@ class KnowledgeItem(models.Model):
 
     def __str__(self):
         return f"{self.get_type_display()} - {self.content[:50]}..."
+
+
+class Polling(models.Model):
+    STATUS_CHOICES = [
+        ("training", "Training"),
+        ("ready", "Ready"),
+        ("error", "Error"),
+    ]
+
+    bot = models.ForeignKey(Bot, on_delete=models.CASCADE, related_name="pollings")
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES)
+    completed = models.BooleanField(default=False)
+    error = models.TextField(null=True, blank=True)
+    success = models.BooleanField(null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Polling {self.id} - {self.status} for Bot {self.bot_id}"

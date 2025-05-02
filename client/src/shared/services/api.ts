@@ -46,11 +46,19 @@ export interface Bot {
   secondary_color: string;
 }
 
-export interface BotStatus {
-  id?: string;
-  status: "training" | "ready" | "error";
-  progress?: number;
-  error?: string;
+interface PollingItem {
+  id: number;
+  status: string;
+  completed: boolean;
+  error: string | null;
+  success: boolean | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PollingResponse {
+  bot: Bot;
+  pollings: PollingItem[];
 }
 
 export const getCompany = async (): Promise<Company | null> => {
@@ -98,7 +106,7 @@ export const listBots = async (): Promise<Bot[]> => {
   }
 };
 
-export const getBotStatus = async (botId: string): Promise<BotStatus> => {
+export const getBotStatus = async (botId: string): Promise<PollingResponse> => {
   try {
     const response = await axios.get(`${API_BASE_URL}/bot/${botId}/status`);
     return response.data;

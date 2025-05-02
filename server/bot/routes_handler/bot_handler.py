@@ -2,6 +2,7 @@ from ninja import Router, Schema
 from typing import List, Optional
 from ..models import Bot, KnowledgeItem
 from company.models import Company
+from ..tasks.embeddings import create_embeddings
 
 router = Router()
 
@@ -27,10 +28,8 @@ class BotResponseSchema(Schema):
 
 
 class BotStatusSchema(Schema):
-    id: str
-    status: str
-    progress: int
-    error: Optional[str]
+    bot: dict
+    pollings: List[dict]
 
 
 @router.post("/bot", response={201: dict})
@@ -52,6 +51,7 @@ def create_bot(request, data: BotCreateSchema):
         knowledge_items.append({"id": str(knowledge_item.id), "type": knowledge_item.type, "content": knowledge_item.content})
 
     # Set off async task to create embeddings
+    create_embeddings(bot_id=bot.id)
 
     return 201, {"id": str(bot.id), "name": bot.name, "tone": bot.tone, "company": {"id": str(company.id), "name": company.name}, "knowledge_items": knowledge_items}
 
@@ -78,12 +78,27 @@ def list_bots(request):
 def get_bot_status(request, bot_id: str):
     try:
         bot = Bot.objects.get(id=bot_id)
-        # Dummy status - in a real implementation, this would check the actual training status
+        polling_items = list(
+            bot.pollings.values(
+                "id",
+                "status",
+                "completed",
+                "error",
+                "success",
+                "created_at",
+                "updated_at",
+            ).order_by("created_at")
+        )
         return 200, {
-            "id": str(bot.id),
-            "status": "ready",  # or "training" or "error"
-            "progress": 100,  # percentage complete
-            "error": None,
+            "bot": {
+                "id": bot.id,
+                "name": bot.name,
+                "tone": bot.tone,
+                "company": {"id": str(bot.company.id), "name": bot.company.name},
+                "created_at": bot.created_at.isoformat(),
+                "updated_at": bot.updated_at.isoformat(),
+            },
+            "pollings": polling_items,
         }
     except Bot.DoesNotExist:
         return 404, {"error": "Bot not found"}
