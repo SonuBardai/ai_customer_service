@@ -87,3 +87,17 @@ def get_bot_status(request, bot_id: str):
         }
     except Bot.DoesNotExist:
         return 404, {"error": "Bot not found"}
+
+
+@router.get("/bot/{bot_id}", response={200: BotResponseSchema})
+def get_bot(request, bot_id: str):
+    try:
+        company = Company.objects.first()  # TODO: REMOVE LATER
+        # company = request.user.company
+
+        bot = Bot.objects.get(id=bot_id, company=company)
+        knowledge_items = [{"id": str(item.id), "type": item.type, "content": item.content} for item in bot.knowledge_items.all()]
+
+        return 200, {"id": str(bot.id), "name": bot.name, "tone": bot.tone, "company": {"id": str(bot.company.id), "name": bot.company.name}, "knowledge_items": knowledge_items}
+    except Bot.DoesNotExist:
+        return 404, {"error": "Bot not found"}

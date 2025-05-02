@@ -41,10 +41,13 @@ export interface Bot {
     type: string;
     content: string;
   }>;
+  status: string;
+  primary_color: string;
+  secondary_color: string;
 }
 
 export interface BotStatus {
-  id: string;
+  id?: string;
   status: "training" | "ready" | "error";
   progress?: number;
   error?: string;
@@ -83,14 +86,39 @@ export const createBot = async (config: BotConfig) => {
 export const listBots = async (): Promise<Bot[]> => {
   try {
     const response = await axios.get(`${API_BASE_URL}/bots`);
-    return response.data;
+    return response.data.map((bot: any) => ({
+      ...bot,
+      status: "ready",
+      primary_color: "#4F46E5",
+      secondary_color: "#10B981",
+    }));
   } catch (error) {
-    console.error("Error fetching bots:", error);
-    return [];
+    console.error("Error listing bots:", error);
+    throw error;
   }
 };
 
-export const getBotStatus = async (botId: string): Promise<BotStatus> => {
-  const response = await axios.get(`${API_BASE_URL}/bot/${botId}/status`);
-  return response.data;
+export const getBotStatus = async (botId: string): Promise<{ status: string }> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/bot/${botId}/status`);
+    return response.data;
+  } catch (error) {
+    console.error("Error getting bot status:", error);
+    throw error;
+  }
+};
+
+export const getBot = async (botId: string): Promise<Bot> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/bot/${botId}`);
+    return {
+      ...response.data,
+      status: "ready",
+      primary_color: "#4F46E5",
+      secondary_color: "#10B981",
+    };
+  } catch (error) {
+    console.error("Error getting bot:", error);
+    throw error;
+  }
 };

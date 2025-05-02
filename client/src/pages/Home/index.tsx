@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Bot, BotStatus } from "../../types";
-import { listBots, getBotStatus } from "../../shared/services/api";
+import { listBots, getBotStatus, getBot, Bot, BotStatus } from "../../shared/services/api";
 import toast from "react-hot-toast";
-import { FaRobot, FaCheckCircle, FaExclamationCircle, FaCopy } from "react-icons/fa";
+import { FaRobot, FaCheckCircle, FaExclamationCircle, FaCopy, FaGlobe, FaBook, FaCog, FaLink, FaFile, FaFont, FaTrash, FaPlus, FaTimes } from "react-icons/fa";
+import ChatbotInterface from "../../components/ChatbotInterface";
+import { getContrastColor } from "../../utils/color";
 
 const setSearchParams = (params: { id: string }) => {
   const searchParams = new URLSearchParams();
@@ -21,10 +22,44 @@ const Home: React.FC = () => {
   const [whitelistedDomains, setWhitelistedDomains] = useState<string[]>([""]);
   const [isLoading, setIsLoading] = useState(true);
   const [botStatus, setBotStatus] = useState<BotStatus | null>(null);
+  const [activeTab, setActiveTab] = useState("whitelist");
+  const [knowledgeItems, setKnowledgeItems] = useState<
+    Array<{
+      id: number;
+      type: "url" | "file" | "text";
+      content: string;
+    }>
+  >([]);
+  const [botSettings, setBotSettings] = useState({
+    name: "",
+    tone: "professional",
+  });
+  const [showChatbot, setShowChatbot] = useState(false);
 
-  const selectBot = (bot: Bot) => {
+  const fetchBotDetails = async (botId: string) => {
+    try {
+      const botDetails = await getBot(botId);
+      setBotSettings({
+        name: botDetails.name,
+        tone: botDetails.tone,
+      });
+      setKnowledgeItems(
+        botDetails.knowledge_items.map((item) => ({
+          id: parseInt(item.id),
+          type: item.type as "url" | "file" | "text",
+          content: item.content,
+        }))
+      );
+    } catch (error) {
+      console.error("Error fetching bot details:", error);
+      toast.error("Failed to load bot details");
+    }
+  };
+
+  const selectBot = async (bot: Bot) => {
     setSelectedBot(bot);
     setSearchParams({ id: bot.id });
+    await fetchBotDetails(bot.id);
   };
 
   useEffect(() => {
@@ -118,6 +153,188 @@ const Home: React.FC = () => {
     navigator.clipboard.writeText(script);
   };
 
+  const addKnowledgeItem = (type: "url" | "file" | "text") => {
+    setKnowledgeItems((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        type,
+        content: "",
+      },
+    ]);
+  };
+
+  const removeKnowledgeItem = (id: number) => {
+    setKnowledgeItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const updateKnowledgeItem = (id: number, content: string) => {
+    setKnowledgeItems((prev) => prev.map((item) => (item.id === id ? { ...item, content } : item)));
+  };
+
+  const handleSettingsChange = (field: keyof typeof botSettings, value: string) => {
+    setBotSettings((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "whitelist":
+        return (
+          <div className="space-y-4">
+            {whitelistedDomains.map((domain, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  type="text"
+                  className="input input-bordered flex-1"
+                  placeholder="Enter domain (e.g., example.com)"
+                  value={domain}
+                  onChange={(e) => handleDomainChange(index, e.target.value)}
+                />
+                {index > 0 && (
+                  <button className="btn btn-error" onClick={() => handleRemoveDomain(index)}>
+                    <FaTrash />
+                  </button>
+                )}
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <button className="btn btn-primary gap-2" onClick={handleAddDomain}>
+                <FaPlus />
+                Add Domain
+              </button>
+              <button className="btn btn-primary" onClick={handleSubmitDomains}>
+                Save Domains
+              </button>
+            </div>
+          </div>
+        );
+
+      case "knowledge":
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Knowledge Base Items</h3>
+              <div className="flex gap-2">
+                <button className="btn btn-sm tooltip flex items-center gap-2" data-tip="Add URL" onClick={() => addKnowledgeItem("url")}>
+                  <FaLink /> Add URL
+                </button>
+                <button className="btn btn-sm tooltip flex items-center gap-2" data-tip="Add File" onClick={() => addKnowledgeItem("file")}>
+                  <FaFile /> Add File
+                </button>
+                <button className="btn btn-sm tooltip flex items-center gap-2" data-tip="Add Text" onClick={() => addKnowledgeItem("text")}>
+                  <FaFont /> Add Text
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {knowledgeItems.map((item) => (
+                <div key={item.id} className="card bg-base-200 p-4">
+                  <div className="flex gap-4 items-start">
+                    <div className="flex-1">
+                      {item.type === "url" && (
+                        <div className="form-control">
+                          <label className="label">
+                            <span className="label-text flex items-center gap-2">
+                              <FaLink className="text-primary" />
+                              URL
+                            </span>
+                          </label>
+                          <input
+                            type="url"
+                            placeholder="Enter URL (e.g., https://example.com)"
+                            className="input input-bordered w-full"
+                            value={item.content}
+                            onChange={(e) => updateKnowledgeItem(item.id, e.target.value)}
+                          />
+                        </div>
+                      )}
+                      {item.type === "file" && (
+                        <div className="form-control">
+                          <label className="label">
+                            <span className="label-text flex items-center gap-2">
+                              <FaFile className="text-primary" />
+                              File
+                            </span>
+                          </label>
+                          <input type="file" className="file-input file-input-bordered w-full" onChange={(e) => updateKnowledgeItem(item.id, e.target.files?.[0]?.name || "")} />
+                        </div>
+                      )}
+                      {item.type === "text" && (
+                        <div className="form-control">
+                          <label className="label">
+                            <span className="label-text flex items-center gap-2">
+                              <FaFont className="text-primary" />
+                              Text Content
+                            </span>
+                          </label>
+                          <textarea
+                            placeholder="Enter text content..."
+                            className="textarea textarea-bordered w-full"
+                            value={item.content}
+                            onChange={(e) => updateKnowledgeItem(item.id, e.target.value)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <button className="btn btn-sm btn-error tooltip" data-tip="Remove item" onClick={() => removeKnowledgeItem(item.id)}>
+                      <FaTrash />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case "settings":
+        return (
+          <div className="space-y-6">
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text flex items-center gap-2">
+                  <FaRobot className="text-primary" />
+                  Bot Name
+                </span>
+              </label>
+              <input
+                type="text"
+                placeholder="Enter bot name"
+                className="input input-bordered"
+                value={botSettings.name}
+                onChange={(e) => handleSettingsChange("name", e.target.value)}
+              />
+            </div>
+
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text flex items-center gap-2">
+                  <FaCog className="text-primary" />
+                  Tone
+                </span>
+              </label>
+              <select className="select select-bordered" value={botSettings.tone} onChange={(e) => handleSettingsChange("tone", e.target.value)}>
+                <option value="professional">Professional</option>
+                <option value="friendly">Friendly</option>
+                <option value="casual">Casual</option>
+                <option value="technical">Technical</option>
+              </select>
+            </div>
+
+            <div className="card-actions justify-end">
+              <button className="btn btn-primary">Save Settings</button>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -193,33 +410,22 @@ const Home: React.FC = () => {
 
             <div className="card bg-base-200">
               <div className="card-body">
-                <h3 className="card-title">Whitelisted Domains</h3>
-                <div className="space-y-4">
-                  {whitelistedDomains.map((domain, index) => (
-                    <div key={index} className="flex gap-2">
-                      <input
-                        type="text"
-                        className="input input-bordered flex-1"
-                        placeholder="Enter domain (e.g., example.com)"
-                        value={domain}
-                        onChange={(e) => handleDomainChange(index, e.target.value)}
-                      />
-                      {index > 0 && (
-                        <button className="btn btn-error" onClick={() => handleRemoveDomain(index)}>
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <div className="flex gap-2">
-                    <button className="btn btn-primary" onClick={handleAddDomain}>
-                      Add Domain
-                    </button>
-                    <button className="btn btn-primary" onClick={handleSubmitDomains}>
-                      Save Domains
-                    </button>
-                  </div>
+                <div className="tabs tabs-boxed">
+                  <button className={`tab gap-2 ${activeTab === "whitelist" ? "tab-active" : ""}`} onClick={() => setActiveTab("whitelist")}>
+                    <FaGlobe />
+                    Whitelist
+                  </button>
+                  <button className={`tab gap-2 ${activeTab === "knowledge" ? "tab-active" : ""}`} onClick={() => setActiveTab("knowledge")}>
+                    <FaBook />
+                    Knowledge
+                  </button>
+                  <button className={`tab gap-2 ${activeTab === "settings" ? "tab-active" : ""}`} onClick={() => setActiveTab("settings")}>
+                    <FaCog />
+                    Settings
+                  </button>
                 </div>
+
+                <div className="mt-6">{renderTabContent()}</div>
               </div>
             </div>
           </div>
@@ -235,6 +441,32 @@ const Home: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Try using button and Chatbot Interface */}
+      {selectedBot && selectedBot.status === "ready" && (
+        <div className="fixed bottom-4 right-4 z-50">
+          {!showChatbot ? (
+            <button
+              onClick={() => setShowChatbot(true)}
+              className="btn btn-primary gap-2"
+              style={{
+                backgroundColor: selectedBot.primary_color,
+                color: getContrastColor(selectedBot.primary_color),
+              }}
+            >
+              <FaRobot />
+              Try using {selectedBot.name}
+            </button>
+          ) : (
+            <div className="relative">
+              <button onClick={() => setShowChatbot(false)} className="absolute -top-4 -right-4 btn btn-circle btn-sm bg-white/20 hover:bg-white/30 border-0">
+                <FaTimes className="text-white" />
+              </button>
+              <ChatbotInterface botName={selectedBot.name} primaryColor={selectedBot.primary_color} secondaryColor={selectedBot.secondary_color} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
