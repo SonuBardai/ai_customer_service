@@ -8,7 +8,7 @@ const NavBar = () => {
   const [backendConnected, setBackendConnected] = useState(false);
   useEffect(() => {
     const fn = async () => {
-      const response = await axios.get(`${BACKEND_URL}/rest/health/live`);
+      const response = await axios.get(`${BACKEND_URL}/rest/v1/health/live`);
       setBackendConnected(response.data);
     };
     fn();

@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FaTrash, FaLink, FaFile, FaFont, FaBuilding, FaRobot, FaPalette, FaImage, FaVolumeUp } from "react-icons/fa";
+import { getContrastColor } from "Shared/utils/color";
+import { updateCompany, createBot, getCompany, Company } from "Shared/services/api";
+import { toast } from "react-hot-toast";
 
 interface ChatMessage {
   id: number;
@@ -49,14 +52,32 @@ const Home = () => {
   // Configuration state
   const [currentStep, setCurrentStep] = useState(1);
   const [step1Config, setStep1Config] = useState<ConfigStep1>({
-    companyName: "",
-    botName: "",
-    primaryColor: "#3B82F6",
-    secondaryColor: "#10B981",
+    companyName: '',
+    botName: '',
+    primaryColor: '#4F46E5', // Default indigo color
+    secondaryColor: '#10B981', // Default emerald color
     logo: null,
-    tone: ""
+    tone: 'professional'
   });
   const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [company, setCompany] = useState<Company | null>(null);
+
+  useEffect(() => {
+    const fetchCompany = async () => {
+      const companyData = await getCompany();
+      if (companyData) {
+        setCompany(companyData);
+        setStep1Config(prev => ({
+          ...prev,
+          companyName: companyData.name,
+          primaryColor: companyData.primary_color,
+          secondaryColor: companyData.secondary_color,
+        }));
+      }
+    };
+    fetchCompany();
+  }, []);
 
   const handleStep1Change = (field: keyof ConfigStep1, value: string | File | null) => {
     setStep1Config(prev => ({
@@ -88,13 +109,67 @@ const Home = () => {
     );
   };
 
+  const handleStep1Submit = async () => {
+    try {
+      setIsSubmitting(true);
+      const companyConfig = {
+        name: step1Config.companyName,
+        primary_color: step1Config.primaryColor,
+        secondary_color: step1Config.secondaryColor,
+        logo: step1Config.logo || undefined
+      };
+
+      const companyResponse = await updateCompany(companyConfig);
+      setCompany(companyResponse);
+      setCurrentStep(2);
+      toast.success("Company configuration saved!");
+    } catch (error) {
+      console.error("Error saving company configuration:", error);
+      toast.error("Failed to save company configuration. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStep2Submit = async () => {
+    if (!company) {
+      toast.error("No company found. Please complete step 1 first.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const botConfig = {
+        company_id: company.id,
+        name: step1Config.botName || undefined,
+        tone: step1Config.tone || undefined,
+        knowledge_items: knowledgeItems.map(item => ({
+          type: item.type,
+          content: item.content
+        }))
+      };
+
+      await createBot(botConfig);
+      toast.success("Bot configuration saved!");
+      
+      // Reset form
+      setKnowledgeItems([]);
+      setCurrentStep(1);
+    } catch (error) {
+      console.error("Error saving bot configuration:", error);
+      toast.error("Failed to save bot configuration. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-base-200 p-4">
       <div className="container mx-auto">
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Left Panel - Chatbot UI */}
           <div className="w-full lg:w-2/5">
-            <div className="card h-[600px] backdrop-blur-lg bg-white/10 shadow-xl border border-white/20">
+            <div className="card h-[600px] backdrop-blur-lg glass shadow-xl">
               <div className="card-body">
                 <h2 className="card-title text-white">Chatbot Interface</h2>
                 <div className="flex-1 overflow-y-auto space-y-4">
@@ -182,7 +257,7 @@ const Home = () => {
                       </label>
                       <input 
                         type="text" 
-                        placeholder="Enter bot name" 
+                        placeholder={"Enter bot name" + (step1Config.companyName ? ` (defaults to ${step1Config.companyName} Bot)` : "")} 
                         className="input input-bordered" 
                         value={step1Config.botName}
                         onChange={(e) => handleStep1Change("botName", e.target.value)}
@@ -243,7 +318,7 @@ const Home = () => {
                       <label className="label">
                         <span className="label-text flex items-center gap-2">
                           <FaImage className="text-primary" />
-                          Logo
+                          Logo for your chatbot
                           <span className="badge badge-ghost badge-sm">Optional</span>
                         </span>
                       </label>
@@ -289,10 +364,14 @@ const Home = () => {
                       <button 
                         type="button" 
                         className="btn btn-primary"
-                        onClick={() => setCurrentStep(2)}
-                        disabled={!step1Config.companyName}
+                        onClick={handleStep1Submit}
+                        disabled={isSubmitting || !step1Config.companyName}
                       >
-                        Next Step
+                        {isSubmitting ? (
+                          <span className="loading loading-spinner"></span>
+                        ) : (
+                          "Next Step"
+                        )}
                       </button>
                     </div>
                   </form>
@@ -395,10 +474,21 @@ const Home = () => {
                       <button 
                         className="btn"
                         onClick={() => setCurrentStep(1)}
+                        disabled={isSubmitting}
                       >
                         Previous Step
                       </button>
-                      <button className="btn btn-primary">Save Configuration</button>
+                      <button 
+                        className="btn btn-primary"
+                        onClick={handleStep2Submit}
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? (
+                          <span className="loading loading-spinner"></span>
+                        ) : (
+                          "Save Configuration"
+                        )}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -410,22 +500,5 @@ const Home = () => {
     </div>
   );
 };
-
-// Helper function to determine text color based on background color
-function getContrastColor(hexColor: string): string {
-  // Remove the hash if it exists
-  const color = hexColor.replace('#', '');
-  
-  // Convert hex to RGB
-  const r = parseInt(color.substr(0, 2), 16);
-  const g = parseInt(color.substr(2, 2), 16);
-  const b = parseInt(color.substr(4, 2), 16);
-  
-  // Calculate relative luminance
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  
-  // Return black or white based on luminance
-  return luminance > 0.5 ? '#000000' : '#FFFFFF';
-}
 
 export default Home;
