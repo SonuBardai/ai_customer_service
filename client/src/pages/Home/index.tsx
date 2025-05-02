@@ -5,18 +5,10 @@ import toast from "react-hot-toast";
 import { FaRobot, FaCheckCircle, FaExclamationCircle, FaCopy, FaGlobe, FaBook, FaCog, FaLink, FaFile, FaFont, FaTrash, FaPlus, FaTimes } from "react-icons/fa";
 import ChatbotInterface from "../../components/ChatbotInterface";
 import { getContrastColor } from "../../utils/color";
-
-const setSearchParams = (params: { id: string }) => {
-  const searchParams = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    searchParams.set(key, value);
-  });
-  // set the search params
-  window.history.pushState({}, "", `?${searchParams.toString()}`);
-};
+import { BACKEND_URL } from "Shared/constants";
 
 const Home: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [bots, setBots] = useState<Bot[]>([]);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
   const [whitelistedDomains, setWhitelistedDomains] = useState<string[]>([""]);
@@ -91,7 +83,7 @@ const Home: React.FC = () => {
   useEffect(() => {
     let intervalId: number;
 
-    if (selectedBot && searchParams.get("id") === selectedBot.id) {
+    if (selectedBot) {
       const checkBotStatus = async () => {
         try {
           // Simulate training time
@@ -120,7 +112,7 @@ const Home: React.FC = () => {
         clearInterval(intervalId);
       }
     };
-  }, [selectedBot, searchParams]);
+  }, [selectedBot]);
 
   const handleAddDomain = () => {
     setWhitelistedDomains([...whitelistedDomains, ""]);
@@ -146,11 +138,18 @@ const Home: React.FC = () => {
     }
   };
 
+  const generateBotScript = (botId: string) => {
+    return `<script
+  src="${BACKEND_URL}/static/chatbot.js"
+  data-bot-id="${botId}">
+</script>`;
+  };
+
   const copyScript = () => {
     if (!selectedBot) return;
-
-    const script = `<script src="https://your-domain.com/chatbot.js" data-bot-id="${selectedBot.id}"></script>`;
+    const script = generateBotScript(selectedBot.id);
     navigator.clipboard.writeText(script);
+    toast.success("Script copied to clipboard");
   };
 
   const addKnowledgeItem = (type: "url" | "file" | "text") => {
@@ -394,11 +393,11 @@ const Home: React.FC = () => {
             </div>
 
             <div className="card bg-base-200">
-              <div className="card-body">
+              <div className="card-body px-6">
                 <h3 className="card-title">Installation Script</h3>
                 <div className="flex items-start gap-2">
                   <pre className="flex-1 bg-base-300 p-4 rounded-lg overflow-x-auto">
-                    {`<script src="https://your-domain.com/chatbot.js" data-bot-id="${selectedBot.id}"></script>`}
+                    {generateBotScript(selectedBot.id)}
                   </pre>
                   <button className="btn btn-primary gap-2" onClick={copyScript}>
                     <FaCopy />
@@ -459,7 +458,7 @@ const Home: React.FC = () => {
             </button>
           ) : (
             <div className="relative">
-              <button onClick={() => setShowChatbot(false)} className="absolute -top-4 -right-4 btn btn-circle btn-sm bg-white/20 hover:bg-white/30 border-0">
+              <button onClick={() => setShowChatbot(false)} className="absolute z-[5] -top-4 -right-4 btn btn-circle btn-sm bg-white/20 hover:bg-white/30 border-0">
                 <FaTimes className="text-white" />
               </button>
               <ChatbotInterface botName={selectedBot.name} primaryColor={selectedBot.primary_color} secondaryColor={selectedBot.secondary_color} />
