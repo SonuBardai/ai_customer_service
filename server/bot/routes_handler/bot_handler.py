@@ -51,7 +51,7 @@ def create_bot(request, data: BotCreateSchema):
         knowledge_items.append({"id": str(knowledge_item.id), "type": knowledge_item.type, "content": knowledge_item.content})
 
     # Set off async task to create embeddings
-    create_embeddings(bot_id=bot.id)
+    create_embeddings(bot=bot)
 
     return 201, {"id": str(bot.id), "name": bot.name, "tone": bot.tone, "company": {"id": str(company.id), "name": company.name}, "knowledge_items": knowledge_items}
 
@@ -89,6 +89,9 @@ def get_bot_status(request, bot_id: str):
                 "updated_at",
             ).order_by("created_at")
         )
+        if not polling_items:
+            # task hasn't started yet or it failed, restart it
+            create_embeddings(bot)
         return 200, {
             "bot": {
                 "id": bot.id,

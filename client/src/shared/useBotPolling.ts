@@ -31,8 +31,11 @@ const useBotPolling = (botId: string) => {
           const response = await getBotStatus(botId);
           
           // Check if we should stop polling
-          const latestPolling = response.pollings[response.pollings.length - 1];
-          if (latestPolling && (latestPolling.status === "completed" || latestPolling.status === "error")) {
+          const hasTerminalStatus = response.pollings.some(polling => 
+            ["ready", "completed", "error"].includes(polling.status.toLowerCase())
+          );
+
+          if (hasTerminalStatus) {
             if (isMounted) {
               setStatus(response);
             }
@@ -67,9 +70,16 @@ const useBotPolling = (botId: string) => {
     };
   }, [botId]);
 
+  const isReady = status?.pollings.some(polling => ['ready', 'completed'].includes(polling.status.toLowerCase()));
+  const error = status?.pollings.find(polling => polling.status.toLowerCase() === "error")?.error;
+  const isError = !!error;
+
   return {
     status,
     isPolling,
+    isReady,
+    isError,
+    error,
   };
 };
 

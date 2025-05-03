@@ -30,6 +30,7 @@ class KnowledgeItem(models.Model):
 
 class Polling(models.Model):
     STATUS_CHOICES = [
+        ("started", "Started"),
         ("training", "Training"),
         ("ready", "Ready"),
         ("error", "Error"),

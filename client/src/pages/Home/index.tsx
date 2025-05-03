@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { listBots, getBot, Bot } from "../../shared/services/api";
 import toast from "react-hot-toast";
 import { FaRobot, FaCheckCircle, FaExclamationCircle, FaCopy, FaGlobe, FaBook, FaCog, FaLink, FaFile, FaFont, FaTrash, FaPlus, FaTimes } from "react-icons/fa";
@@ -9,6 +9,8 @@ import { BACKEND_URL } from "Shared/constants";
 import useBotPolling from "../../shared/useBotPolling";
 
 const Home: React.FC = () => {
+  const navigate = useNavigate();
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [bots, setBots] = useState<Bot[]>([]);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
@@ -29,7 +31,7 @@ const Home: React.FC = () => {
   const [showChatbot, setShowChatbot] = useState(false);
 
   // Poll bot status when selectedBot changes
-  const { status: botStatus, isPolling } = useBotPolling(selectedBot?.id || "");
+  const { isPolling, isReady, isError, error } = useBotPolling(selectedBot?.id || "");
 
   const fetchBotDetails = async (botId: string) => {
     try {
@@ -321,7 +323,14 @@ const Home: React.FC = () => {
     <div className="flex h-screen">
       {/* Left sidebar with bot list */}
       <div className="w-1/4 bg-base-200 p-4 overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">Your Bots</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold">Your Bots</h2>
+        <div className="flex justify-end">
+          <button className="btn btn-primary" onClick={() => navigate('/setup')}>
+            <FaPlus /> Add Bot
+          </button>
+        </div>
+      </div>
         <div className="space-y-2">
           {bots.map((bot) => (
             <div
@@ -348,25 +357,25 @@ const Home: React.FC = () => {
               {searchParams.get("id") === selectedBot.id && (
                 <div className="flex items-center gap-2">
                   {isPolling ? (
-                    <div className="flex items-center gap-2 text-info">
+                    <div className="flex items-center gap-2 bg-info-content p-2 rounded text-info">
                       <div className="loading loading-spinner loading-sm"></div>
                       <span>We're training your bot...</span>
                     </div>
-                  ) : botStatus ? (
+                  ) : (
                     <div className="flex items-center gap-2">
-                      {botStatus.pollings[botStatus.pollings.length - 1].status === "completed" ? (
+                      {isReady ? (
                         <>
                           <FaCheckCircle className="text-xl text-success" />
                           <span>Bot Ready!</span>
                         </>
-                      ) : (
+                      ) : isError ? (
                         <>
                           <FaExclamationCircle className="text-xl text-error" />
-                          <span>Error: {botStatus.pollings[botStatus.pollings.length - 1].error}</span>
+                          <span>Error: {error}</span>
                         </>
-                      )}
+                      ) : null}
                     </div>
-                  ) : null}
+                  )}
                 </div>
               )}
             </div>
@@ -421,28 +430,31 @@ const Home: React.FC = () => {
       </div>
 
       {/* Try using button and Chatbot Interface */}
-      {selectedBot && selectedBot.status === "ready" && (
+      {selectedBot && isReady && (
         <div className="fixed bottom-4 right-4 z-50">
-          {!showChatbot ? (
-            <button
-              onClick={() => setShowChatbot(true)}
-              className="btn btn-primary gap-2"
-              style={{
-                backgroundColor: selectedBot.primary_color,
-                color: getContrastColor(selectedBot.primary_color),
-              }}
-            >
-              <FaRobot />
-              Try using {selectedBot.name}
-            </button>
-          ) : (
-            <div className="relative">
-              <button onClick={() => setShowChatbot(false)} className="absolute z-[5] -top-4 -right-4 btn btn-circle btn-sm bg-white/20 hover:bg-white/30 border-0">
-                <FaTimes className="text-white" />
+          <div className="indicator">
+          {!showChatbot && <span className="indicator-item indicator-start badge badge-accent">Ready to try!</span>}
+            {!showChatbot ? (
+              <button
+                onClick={() => setShowChatbot(true)}
+                className="btn btn-primary gap-2"
+                style={{
+                  backgroundColor: selectedBot.primary_color,
+                  color: getContrastColor(selectedBot.primary_color),
+                }}
+              >
+                <FaRobot />
+                Ask {selectedBot.name}
               </button>
-              <ChatbotInterface botName={selectedBot.name} primaryColor={selectedBot.primary_color} secondaryColor={selectedBot.secondary_color} />
-            </div>
-          )}
+            ) : (
+              <div className="relative">
+                <button onClick={() => setShowChatbot(false)} className="absolute z-[5] -top-4 -right-4 btn btn-circle btn-sm bg-white/20 hover:bg-white/30 border-0">
+                  <FaTimes className="text-white" />
+                </button>
+                <ChatbotInterface botName={selectedBot.name} primaryColor={selectedBot.primary_color} secondaryColor={selectedBot.secondary_color} />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
