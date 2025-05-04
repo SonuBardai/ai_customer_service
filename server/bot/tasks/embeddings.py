@@ -22,6 +22,7 @@ def simulate_training(bot: Bot):
 
 
 def create_embeddings(bot: Bot):
+    # TODO: use celery later
     Polling.objects.create(bot=bot, status="started", completed=False, error=None, success=None)
     thread = Thread(target=simulate_training, args=(bot,))
     thread.daemon = True

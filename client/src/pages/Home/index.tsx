@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { listBots, getBot, Bot } from "../../shared/services/api";
+import { listBots, getBot, Bot, updateBotDomains } from "../../shared/services/api";
 import toast from "react-hot-toast";
 import { FaRobot, FaCheckCircle, FaExclamationCircle, FaCopy, FaGlobe, FaBook, FaCog, FaLink, FaFile, FaFont, FaTrash, FaPlus, FaTimes } from "react-icons/fa";
 import ChatbotInterface from "../../components/ChatbotInterface";
@@ -47,6 +47,7 @@ const Home: React.FC = () => {
           content: item.content,
         }))
       );
+      setWhitelistedDomains(botDetails.whitelisted_domains || [""]);
     } catch (error) {
       console.error("Error fetching bot details:", error);
       toast.error("Failed to load bot details");
@@ -108,10 +109,14 @@ const Home: React.FC = () => {
 
   const handleSubmitDomains = async () => {
     try {
-      // TODO: Implement API call to save whitelisted domains
-      console.log("Saving domains:", whitelistedDomains);
-    } catch (error) {
+      if (!selectedBot?.id) return;
+
+      await updateBotDomains(selectedBot.id, whitelistedDomains);
+
+      toast.success('Domains saved successfully');
+    } catch (error: any) {
       console.error("Error saving domains:", error);
+      toast.error(error.response?.data?.error || 'Failed to save domains');
     }
   };
 
@@ -170,7 +175,11 @@ const Home: React.FC = () => {
                   onChange={(e) => handleDomainChange(index, e.target.value)}
                 />
                 {index > 0 && (
-                  <button className="btn btn-error" onClick={() => handleRemoveDomain(index)}>
+                  <button 
+                    className="btn btn-error" 
+                    onClick={() => handleRemoveDomain(index)}
+                    disabled={domain.trim() === ""}
+                  >
                     <FaTrash />
                   </button>
                 )}

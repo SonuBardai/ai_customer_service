@@ -46,3 +46,16 @@ class Polling(models.Model):
 
     def __str__(self):
         return f"Polling {self.id} - {self.status} for Bot {self.bot_id}"
+
+
+class WhitelistedDomain(models.Model):
+    bot = models.ForeignKey(Bot, on_delete=models.CASCADE, related_name='whitelisted_domains')
+    domain = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('bot', 'domain')
+
+    def __str__(self):
+        return f"{self.domain} (Bot: {self.bot.name})"

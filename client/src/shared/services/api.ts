@@ -41,6 +41,7 @@ export interface Bot {
     type: string;
     content: string;
   }>;
+  whitelisted_domains: string[];
   status: string;
   primary_color: string;
   secondary_color: string;
@@ -127,6 +128,17 @@ export const getBot = async (botId: string): Promise<Bot> => {
     };
   } catch (error) {
     console.error("Error getting bot:", error);
+    throw error;
+  }
+};
+
+export const updateBotDomains = async (botId: string, domains: string[]): Promise<void> => {
+  try {
+    await axios.post(`${API_BASE_URL}/bot/${botId}/domains`, {
+      domains: domains.filter(domain => domain.trim())
+    });
+  } catch (error) {
+    console.error("Error updating bot domains:", error);
     throw error;
   }
 };

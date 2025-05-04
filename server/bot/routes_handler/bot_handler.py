@@ -3,6 +3,7 @@ from typing import List, Optional
 from ..models import Bot, KnowledgeItem
 from company.models import Company
 from ..tasks.embeddings import create_embeddings
+from ..models import WhitelistedDomain
 
 router = Router()
 
@@ -25,11 +26,16 @@ class BotResponseSchema(Schema):
     tone: str
     company: dict
     knowledge_items: List[dict]
+    whitelisted_domains: List[str]
 
 
 class BotStatusSchema(Schema):
     bot: dict
     pollings: List[dict]
+
+
+class WhitelistedDomainSchema(Schema):
+    domains: List[str]
 
 
 @router.post("/bot", response={201: dict})
@@ -68,8 +74,18 @@ def list_bots(request):
 
     for bot in bots:
         knowledge_items = [{"id": str(item.id), "type": item.type, "content": item.content} for item in bot.knowledge_items.all()]
+        whitelisted_domains = [str(domain.domain) for domain in bot.whitelisted_domains.all()]
 
-        response.append({"id": str(bot.id), "name": bot.name, "tone": bot.tone, "company": {"id": str(company.id), "name": company.name}, "knowledge_items": knowledge_items})
+        response.append(
+            {
+                "id": str(bot.id),
+                "name": bot.name,
+                "tone": bot.tone,
+                "company": {"id": str(company.id), "name": company.name},
+                "knowledge_items": knowledge_items,
+                "whitelisted_domains": whitelisted_domains,
+            }
+        )
 
     return 200, response
 
@@ -107,6 +123,29 @@ def get_bot_status(request, bot_id: str):
         return 404, {"error": "Bot not found"}
 
 
+@router.post("/bot/{bot_id}/domains", response={200: dict})
+def update_whitelisted_domains(request, bot_id: str, domains: WhitelistedDomainSchema):
+    try:
+        company = request.company
+        bot = Bot.objects.get(id=bot_id, company=company)
+
+        # Clear existing domains
+        WhitelistedDomain.objects.filter(bot=bot).delete()
+
+        # Create new domains
+        domain_objects = []
+        for domain in domains.domains:
+            if domain.strip():  # Only create for non-empty domains
+                domain_objects.append(WhitelistedDomain(bot=bot, domain=domain.strip()))
+        WhitelistedDomain.objects.bulk_create(domain_objects)
+
+        return 200, {"message": "Domains updated successfully", "domains": domains.domains}
+    except Bot.DoesNotExist:
+        return 404, {"error": "Bot not found"}
+    except Exception as e:
+        return 500, {"error": str(e)}
+
+
 @router.get("/bot/{bot_id}", response={200: BotResponseSchema})
 def get_bot(request, bot_id: str):
     try:
@@ -114,7 +153,15 @@ def get_bot(request, bot_id: str):
 
         bot = Bot.objects.get(id=bot_id, company=company)
         knowledge_items = [{"id": str(item.id), "type": item.type, "content": item.content} for item in bot.knowledge_items.all()]
+        whitelisted_domains = [str(domain.domain) for domain in bot.whitelisted_domains.all()]
 
-        return 200, {"id": str(bot.id), "name": bot.name, "tone": bot.tone, "company": {"id": str(bot.company.id), "name": bot.company.name}, "knowledge_items": knowledge_items}
+        return 200, {
+            "id": str(bot.id),
+            "name": bot.name,
+            "tone": bot.tone,
+            "company": {"id": str(bot.company.id), "name": bot.company.name},
+            "knowledge_items": knowledge_items,
+            "whitelisted_domains": whitelisted_domains,
+        }
     except Bot.DoesNotExist:
         return 404, {"error": "Bot not found"}
